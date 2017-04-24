@@ -39,7 +39,8 @@ class CiscoBaseConnection(BaseConnection):
         Cisco IOS devices abbreviate the prompt at 20 chars in config mode
         """
         if not pattern:
-            pattern = self.base_prompt[:16]
+            #pattern = self.base_prompt[:16]
+            pattern = self.current_prompt[:16]
         return super(
             CiscoBaseConnection,
             self).check_config_mode(

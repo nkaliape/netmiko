@@ -738,19 +738,16 @@ class BaseConnection(object):
         sleep_interval = 0.1
         self.sleep_timer(sleep_interval, delay_factor)
 
-        # Initial attempt to get prompt
-        prompt = self.read_channel()
-        if self.ansi_escape_codes:
-            prompt = self.strip_ansi_escape_codes(prompt)
-
-        if debug:
-            print("prompt1: {}".format(prompt))
-
         # Check if the only thing you received was a newline
         count = 0
-        prompt = prompt.strip()
+        prompt = None # initial
         while count <= 10 and not prompt:
             prompt = self.read_channel().strip()
+            if re.search(r'[a-z0-9]$', prompt, re.IGNORECASE):
+                # if last char is NOT special char, 
+                # then it is NOT potentially a prompt
+                # so, retry
+                prompt = None
             if prompt:
                 if debug:
                     print("prompt2a: {}".format(repr(prompt)))
