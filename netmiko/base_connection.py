@@ -281,7 +281,7 @@ class BaseConnection(object):
         return output
 
     def _read_channel_expect(self, pattern='', re_flags=0, max_loops=80,
-                             max_timeout=0, delay_factor=1):
+                             max_timeout=0, delay_factor=1, verbose=False):
         """
         Function that reads channel until pattern is detected.
 
@@ -326,7 +326,7 @@ class BaseConnection(object):
                 finally:
                     self._unlock_netmiko_session()
             elif self.protocol == 'telnet':
-                output += self.read_channel()
+                output += self.read_channel(verbose=verbose)
             if re.search(pattern, output, flags=re_flags):
                 if debug:
                     print("Pattern found: {} {}".format(pattern, output))
@@ -340,7 +340,8 @@ class BaseConnection(object):
             self,
             delay_factor=1,
             max_loops=150,
-            max_timeout=0):
+            max_timeout=0,
+            verbose=False):
         """
         Read data on the channel based on timing delays.
 
@@ -357,7 +358,7 @@ class BaseConnection(object):
             loop_delay, delay_factor=delay_factor, max_timeout=max_timeout, max_loops=max_loops)
         while i <= max_loops:
             time.sleep(loop_delay)
-            new_data = self.read_channel()
+            new_data = self.read_channel(verbose=verbose)
             if new_data:
                 channel_data += new_data
             else:
@@ -365,7 +366,7 @@ class BaseConnection(object):
                 safeguard_delay = self.adjusted_loop_delay(
                     2, delay_factor)  # for read_channel_timing
                 time.sleep(safeguard_delay)
-                new_data = self.read_channel()
+                new_data = self.read_channel(verbose=verbose)
                 if not new_data:
                     break
                 else:
@@ -395,7 +396,8 @@ class BaseConnection(object):
             username_pattern=r"sername",
             pwd_pattern=r"assword",
             delay_factor=1,
-            max_loops=60):
+            max_loops=60,
+            verbose=True):
         """Telnet login. Can be username/password or just password."""
         TELNET_RETURN = '\r\n'
 
@@ -440,7 +442,7 @@ class BaseConnection(object):
         # Last try to see if we already logged in
         self.write_channel(TELNET_RETURN)
         time.sleep(.5 * delay_factor)
-        output = self.read_channel()
+        output = self.read_channel(verbose=True)
         return_msg += output
         if pri_prompt_terminator in output or alt_prompt_terminator in output:
             return return_msg
@@ -722,14 +724,14 @@ class BaseConnection(object):
         This will be set on entering user exec or privileged exec on Cisco, but not when
         entering/exiting config mode.
         """
-        prompt = self.find_prompt(delay_factor=delay_factor)
+        prompt = self.find_prompt(delay_factor=delay_factor, verbose=True)
         if not prompt[-1] in (pri_prompt_terminator, alt_prompt_terminator):
             raise ValueError("Router prompt not found: {0}".format(prompt))
         # Strip off trailing terminator
         self.base_prompt = prompt[:-1]
         return self.base_prompt
 
-    def find_prompt(self, delay_factor=1):
+    def find_prompt(self, delay_factor=1, pattern=r'[a-z0-9]$', verbose=False):
         """Finds the current network device prompt, last line only."""
         debug = self.debug_flag
         self.clear_buffer()
@@ -742,11 +744,13 @@ class BaseConnection(object):
         count = 0
         prompt = None # initial
         while count <= 10 and not prompt:
-            prompt = self.read_channel().strip()
-            if re.search(r'[a-z0-9]$', prompt, re.IGNORECASE):
+            prompt = self.read_channel(verbose=verbose).strip()
+            if re.search(pattern, prompt, re.IGNORECASE):
                 # if last char is NOT special char, 
                 # then it is NOT potentially a prompt
                 # so, retry
+                if 'RP Node is not ready' in prompt:
+                    return self.strip_ansi_escape_codes(prompt).strip()
                 prompt = None
             if prompt:
                 if debug:
