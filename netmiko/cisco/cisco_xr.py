@@ -15,7 +15,8 @@ class CiscoXr(CiscoBaseConnection):
         self.set_base_prompt(alt_prompt_terminator='$')
         switch_to_xr_command = 'xr'
         if self.find_prompt().endswith('$'):
-            self.send_command(switch_to_xr_command, expect_string='#')
+            #self.send_command(switch_to_xr_command, expect_string='#')
+            self.telnet_login(init_cmd=switch_to_xr_command)
             self.base_prompt = self.find_prompt()
         self.disable_paging()
         self.set_terminal_width(command='terminal width 511')

@@ -397,9 +397,14 @@ class BaseConnection(object):
             pwd_pattern=r"assword",
             delay_factor=1,
             max_loops=60,
+            init_cmd=None,
             verbose=True):
         """Telnet login. Can be username/password or just password."""
         TELNET_RETURN = '\r\n'
+        if init_cmd:
+            TELNET_RETURN = '\r'
+            self.write_channel(init_cmd + TELNET_RETURN)
+           
 
         delay_factor = self.select_delay_factor(delay_factor)
         time.sleep(1 * delay_factor)
