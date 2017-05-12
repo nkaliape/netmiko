@@ -842,7 +842,7 @@ class BaseConnection(object):
     def send_command(self, command_string, expect_string=None,
                      delay_factor=1, max_loops=500, auto_find_prompt=True,
                      strip_prompt=True, strip_command=True,
-                     max_timeout=0, verbose=False):
+                     max_timeout=0, verbose=False, additional_pattern=None):
         '''
         Send command to network device retrieve output until router_prompt or expect_string
 
@@ -861,6 +861,8 @@ class BaseConnection(object):
           # max_loops * loop_delay * delay_factor
         '''
         debug = self.debug_flag
+        if debug:
+            print('In send command expect')
         loop_delay = 0.2
         max_loops, max_timeout, loop_delay = self.loop_planner(
             loop_delay, delay_factor=delay_factor, max_timeout=max_timeout, max_loops=max_loops)
@@ -919,6 +921,8 @@ class BaseConnection(object):
                 except IndexError:
                     pass
                 if re.search(search_pattern, output):
+                    break
+                if additional_pattern and re.search(additional_pattern, output):
                     break
                 # Need sleep irrespective of new_data - for timeout to take
                 # effect

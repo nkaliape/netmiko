@@ -135,11 +135,14 @@ class CiscoXr(CiscoBaseConnection):
         # Enter config mode (if necessary)
         # output = self.config_mode()
         output = ''
+        # Scenario 2 alt_error - to handle we need additional_pattern
         output += self.send_command_expect(command_string,
                                            strip_prompt=False,
                                            strip_command=False,
                                            delay_factor=delay_factor,
-                                           max_timeout=max_timeout)
+                                           max_timeout=max_timeout,
+                                           additional_pattern=alt_error_marker)
+       
         if error_marker in output:
             raise ValueError(
                 "Commit failed with the following errors:\n\n{0}".format(output))
@@ -203,10 +206,15 @@ class CiscoXrTelnet(CiscoXr):
 
     def session_preparation(self):
         """Prepare the session after the connection has been established."""
-        self.set_base_prompt()
+        self.set_base_prompt(alt_prompt_terminator='$')
         if 'RP Node is not ' in self.find_prompt():
             # Incase of standby - skip rest of section
             return
+        switch_to_xr_command = 'xr'
+        if self.find_prompt().endswith('$'):
+            #self.send_command(switch_to_xr_command, expect_string='#')
+            self.telnet_login(init_cmd=switch_to_xr_command)
+            self.base_prompt = self.find_prompt()
         self.disable_paging(verbose=True)
         self.set_terminal_width(command='terminal width 511', verbose=True)
 
