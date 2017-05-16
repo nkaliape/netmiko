@@ -778,6 +778,7 @@ class BaseConnection(object):
             raise ValueError("Unable to find prompt: {}".format(prompt))
         self.sleep_timer(sleep_interval, delay_factor)
         self.clear_buffer()
+        self.current_prompt = prompt
         return prompt
 
     def clear_buffer(self):

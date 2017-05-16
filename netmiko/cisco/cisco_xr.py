@@ -171,14 +171,14 @@ class CiscoXr(CiscoBaseConnection):
                 strip_prompt=False,
                 strip_command=False,
                 auto_find_prompt=False,
-                expect_string=self.current_prompt)
+                expect_string=self.current_prompt[:16])
             if "Uncommitted changes found" in output:
                 output = self.send_command_expect(
                     prompt_response,
                     strip_prompt=False,
                     strip_command=False,
                     auto_find_prompt=False,
-                    expect_string=self.current_prompt)
+                    expect_string=self.current_prompt[:16])
             if skip_check:
                 return output
             if self.check_config_mode():
