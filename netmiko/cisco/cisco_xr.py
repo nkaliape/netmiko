@@ -15,7 +15,7 @@ class CiscoXr(CiscoBaseConnection):
         self.set_base_prompt(alt_prompt_terminator='$')
         switch_to_xr_command = 'xr'
         if self.find_prompt().endswith('$'):
-            #self.send_command(switch_to_xr_command, expect_string='#')
+            # self.send_command(switch_to_xr_command, expect_string='#')
             self.telnet_login(init_cmd=switch_to_xr_command)
             self.base_prompt = self.find_prompt()
         self.disable_paging()
@@ -36,7 +36,7 @@ class CiscoXr(CiscoBaseConnection):
             pattern = self.current_prompt[:16]
         pattern = pattern + ".*config"
         return super(
-            CiscoBaseConnection,
+            CiscoXr,
             self).config_mode(
             config_command=config_command,
             pattern=pattern,
@@ -58,7 +58,10 @@ class CiscoXr(CiscoBaseConnection):
     def commit(self, confirm=False, confirm_delay=None, comment='', label='',
                replace=False,
                delay_factor=1,
-               max_timeout=30):
+               max_timeout=30,
+               new_prompt='',
+               verbose=False,
+               ):
         """
         Commit the candidate configuration.
 
@@ -141,8 +144,11 @@ class CiscoXr(CiscoBaseConnection):
                                            strip_command=False,
                                            delay_factor=delay_factor,
                                            max_timeout=max_timeout,
-                                           additional_pattern=alt_error_marker)
-       
+                                           expect_string=re.escape(new_prompt),
+                                           additional_pattern=alt_error_marker,
+                                           verbose=verbose,
+                                           )
+
         if error_marker in output:
             raise ValueError(
                 "Commit failed with the following errors:\n\n{0}".format(output))
@@ -158,10 +164,10 @@ class CiscoXr(CiscoBaseConnection):
 
         return output
 
-    def exit_config_mode(self, exit_config='end', 
+    def exit_config_mode(self, exit_config='end',
                          skip_check=False, prompt_response="no"):
         """Exit configuration mode.
-        When config/commit fails, exit may ask for commit the config 
+        When config/commit fails, exit may ask for commit the config
         Say 'no' to handle the config failure
         """
         output = ''
@@ -171,7 +177,8 @@ class CiscoXr(CiscoBaseConnection):
                 strip_prompt=False,
                 strip_command=False,
                 auto_find_prompt=False,
-                expect_string=self.current_prompt[:16])
+                expect_string=self.current_prompt[:16],
+                additional_pattern="Uncommitted changes found")
             if "Uncommitted changes found" in output:
                 output = self.send_command_expect(
                     prompt_response,
@@ -212,7 +219,7 @@ class CiscoXrTelnet(CiscoXr):
             return
         switch_to_xr_command = 'xr'
         if self.find_prompt().endswith('$'):
-            #self.send_command(switch_to_xr_command, expect_string='#')
+            # self.send_command(switch_to_xr_command, expect_string='#')
             self.telnet_login(init_cmd=switch_to_xr_command)
             self.base_prompt = self.find_prompt()
         self.disable_paging(verbose=True)

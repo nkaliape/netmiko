@@ -406,7 +406,6 @@ class BaseConnection(object):
         if init_cmd:
             TELNET_RETURN = '\r'
             self.write_channel(init_cmd + TELNET_RETURN)
-           
 
         delay_factor = self.select_delay_factor(delay_factor)
         time.sleep(1 * delay_factor)
@@ -749,11 +748,11 @@ class BaseConnection(object):
 
         # Check if the only thing you received was a newline
         count = 0
-        prompt = None # initial
+        prompt = None  # initial
         while count <= 10 and not prompt:
             prompt = self.read_channel(verbose=verbose).strip()
             if re.search(pattern, prompt, re.IGNORECASE):
-                # if last char is NOT special char, 
+                # if last char is NOT special char,
                 # then it is NOT potentially a prompt
                 # so, retry
                 if 'RP Node is not ready' in prompt:
@@ -925,7 +924,8 @@ class BaseConnection(object):
                     pass
                 if re.search(search_pattern, output):
                     break
-                if additional_pattern and re.search(additional_pattern, output):
+                if additional_pattern and re.search(
+                        additional_pattern, output):
                     break
                 # Need sleep irrespective of new_data - for timeout to take
                 # effect
@@ -1082,7 +1082,8 @@ class BaseConnection(object):
             max_loops=150,
             strip_prompt=False,
             strip_command=False,
-            max_timeout=0):
+            max_timeout=0,
+            verbose=False):
         """
         Send configuration commands down the SSH channel.
 
@@ -1111,7 +1112,8 @@ class BaseConnection(object):
         # Gather output
         output += self._read_channel_timing(delay_factor=delay_factor,
                                             max_loops=max_loops,
-                                            max_timeout=max_timeout)
+                                            max_timeout=max_timeout,
+                                            verbose=verbose)
         if exit_config_mode:
             output += self.exit_config_mode()
         output = self._sanitize_output(output)
