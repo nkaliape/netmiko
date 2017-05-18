@@ -793,7 +793,8 @@ class BaseConnection(object):
             max_loops=150,
             strip_prompt=True,
             strip_command=True,
-            max_timeout=0):
+            max_timeout=0,
+            verbose=False):
         '''
         Execute command_string on the SSH channel.
 
@@ -820,7 +821,8 @@ class BaseConnection(object):
         output = self._read_channel_timing(
             delay_factor=delay_factor,
             max_loops=max_loops,
-            max_timeout=max_timeout)
+            max_timeout=max_timeout,
+            verbose=verbose)
         if debug:
             print("zzz: {}".format(output))
         output = self._sanitize_output(

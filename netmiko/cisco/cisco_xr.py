@@ -39,8 +39,7 @@ class CiscoXr(CiscoBaseConnection):
             CiscoXr,
             self).config_mode(
             config_command=config_command,
-            pattern=pattern,
-            skip_check=skip_check)
+            pattern=pattern)
 
     def send_config_set(
             self,
