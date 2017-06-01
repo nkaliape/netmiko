@@ -143,6 +143,8 @@ class BaseConnection(object):
 
         # timers
         self._config_interval = 0.2
+        self._read_interval = 0.2
+        self._write_interval = 0.2
 
         self._session_locker = Lock()
         # determine if telnet or SSH
@@ -308,7 +310,7 @@ class BaseConnection(object):
         # Will loop for self.timeout time (unless modified by
         # global_delay_factor)
         i = 1
-        loop_delay = 0.1  # for read_channel_expect
+        loop_delay = self._read_interval  # for read_channel_expect
         max_loops, max_timeout, loop_delay = self.loop_planner(
             loop_delay, delay_factor=delay_factor, max_timeout=max_timeout, max_loops=max_loops)
         while i < max_loops:
@@ -355,7 +357,7 @@ class BaseConnection(object):
         """
         channel_data = ""
         i = 1
-        loop_delay = 0.1  # for read_channel_timing
+        loop_delay = self._read_interval  # for read_channel_timing
         max_loops, max_timeout, loop_delay = self.loop_planner(
             loop_delay, delay_factor=delay_factor, max_timeout=max_timeout, max_loops=max_loops)
         while i <= max_loops:
@@ -677,7 +679,7 @@ class BaseConnection(object):
             verbose=False):
         """Disable paging default to a Cisco CLI method."""
         debug = self.debug_flag
-        self.sleep_timer(0.1, delay_factor)
+        self.sleep_timer(self._read_interval, delay_factor)
         self.clear_buffer()
         command = self.normalize_cmd(command)
         if debug:
@@ -743,7 +745,7 @@ class BaseConnection(object):
         self.clear_buffer()
         self.write_channel("\n")
         # sleep for brief 100ms (default) - adjust by delay_factor
-        sleep_interval = 0.1
+        sleep_interval = self._read_interval
         self.sleep_timer(sleep_interval, delay_factor)
 
         # Check if the only thing you received was a newline
@@ -867,7 +869,7 @@ class BaseConnection(object):
         debug = self.debug_flag
         if debug:
             print('In send command expect')
-        loop_delay = 0.2
+        loop_delay = self._read_interval
         max_loops, max_timeout, loop_delay = self.loop_planner(
             loop_delay, delay_factor=delay_factor, max_timeout=max_timeout, max_loops=max_loops)
         if debug:
