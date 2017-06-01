@@ -747,11 +747,12 @@ class BaseConnection(object):
         # sleep for brief 100ms (default) - adjust by delay_factor
         sleep_interval = self._read_interval
         self.sleep_timer(sleep_interval, delay_factor)
+        num_of_attempts = 30
 
         # Check if the only thing you received was a newline
         count = 0
         prompt = None  # initial
-        while count <= 10 and not prompt:
+        while count <= num_of_attempts and not prompt:
             prompt = self.read_channel(verbose=verbose).strip()
             if re.search(pattern, prompt, re.IGNORECASE):
                 # if last char is NOT special char,
