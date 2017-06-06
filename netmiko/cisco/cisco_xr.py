@@ -59,6 +59,7 @@ class CiscoXr(CiscoBaseConnection):
                delay_factor=1,
                max_timeout=30,
                new_prompt='',
+               num_tries=6,
                verbose=False,
                ):
         """
@@ -110,7 +111,9 @@ class CiscoXr(CiscoBaseConnection):
 
         label = str(label)
         error_marker = 'Failed to'
-        alt_error_marker = 'One or more commits have occurred from other'
+        multi_commit_err = 'One or more commits have occurred from other'
+        commit_slow_err = 'Commit database consolidation'
+        alt_error_marker = '{}|{}'.format(multi_commit_err,commit_slow_err)
 
         commit_str = 'commit '
         if replace:
@@ -134,11 +137,16 @@ class CiscoXr(CiscoBaseConnection):
 
         command_string = commit_str + command_string
 
+        commit_slow_interval = 5
+        commit_slow_err_hit = False
+        commit_slow_cleared = True
         # Enter config mode (if necessary)
         # output = self.config_mode()
-        output = ''
         # Scenario 2 alt_error - to handle we need additional_pattern
-        output += self.send_command_expect(command_string,
+        # Scenario 3 "Commit database consolidation" wait or Ctrl-C 
+        try_counter = 1
+        while try_counter <= num_tries:
+            output = self.send_command_expect(command_string,
                                            strip_prompt=False,
                                            strip_command=False,
                                            delay_factor=delay_factor,
@@ -147,7 +155,26 @@ class CiscoXr(CiscoBaseConnection):
                                            additional_pattern=alt_error_marker,
                                            verbose=verbose,
                                            )
-
+            if commit_slow_err in output:
+                commit_slow_err_hit = True
+                commit_slow_cleared = False
+                command_string = '\r'
+                try_counter += 1
+                if try_counter == num_tries:
+                    command_string = CNTL_C
+                self.sleep_timer(commit_slow_interval)
+            else:
+                commit_slow_cleared = True
+                break
+                
+        if commit_slow_err_hit:
+            if commit_slow_cleared:
+                raise ValueError(
+                    "Commit failed due to slow response: \n{}".format(output))
+            else:
+                msg = "Commit failed due to slow response and FAILED to RECOVER: \n{}".format(output)
+                raise NetMikoTimeoutException(msg)
+            
         if error_marker in output:
             raise ValueError(
                 "Commit failed with the following errors:\n\n{0}".format(output))

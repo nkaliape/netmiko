@@ -30,3 +30,4 @@ __all__ = ('ConnectHandler', 'ssh_dispatcher', 'platforms', 'SCPConn', 'FileTran
 
 # Cisco cntl-shift-six sequence
 CNTL_SHIFT_6 = chr(30)
+CNTL_C = chr(3)
