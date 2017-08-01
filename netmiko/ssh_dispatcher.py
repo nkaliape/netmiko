@@ -1,10 +1,10 @@
 """Controls selection of proper class based on the device type."""
 from __future__ import unicode_literals
-from netmiko.cisco import CiscoIosSSH
-from netmiko.cisco import CiscoIosTelnet
+from netmiko.cisco import CiscoIosBase
 from netmiko.cisco import CiscoAsaSSH
 from netmiko.cisco import CiscoNxosSSH
 from netmiko.cisco import CiscoXrSSH
+from netmiko.cisco import CiscoXrTelnet
 from netmiko.cisco import CiscoWlcSSH
 from netmiko.cisco import CiscoS300SSH
 from netmiko.eltex import EltexSSH
@@ -26,6 +26,8 @@ from netmiko.enterasys import EnterasysSSH
 from netmiko.extreme import ExtremeSSH
 from netmiko.alcatel import AlcatelSrosSSH
 from netmiko.dell import DellForce10SSH
+from netmiko.dell import DellPowerConnectSSH
+from netmiko.dell import DellPowerConnectTelnet
 from netmiko.paloalto import PaloAltoPanosSSH
 from netmiko.quanta import QuantaMeshSSH
 from netmiko.aruba import ArubaSSH
@@ -33,15 +35,20 @@ from netmiko.vyos import VyOSSSH
 from netmiko.ubiquiti import UbiquitiEdgeSSH
 from netmiko.ciena import CienaSaosSSH
 from netmiko.cisco import CiscoTpTcCeSSH
+from netmiko.terminal_server import TerminalServerSSH
+from netmiko.terminal_server import TerminalServerTelnet
+from netmiko.mellanox import MellanoxSSH
+from netmiko.pluribus import PluribusSSH
 
 
 # The keys of this dictionary are the supported device_types
 CLASS_MAPPER_BASE = {
-    'cisco_ios': CiscoIosSSH,
-    'cisco_xe': CiscoIosSSH,
+    'cisco_ios': CiscoIosBase,
+    'cisco_xe': CiscoIosBase,
     'cisco_asa': CiscoAsaSSH,
     'cisco_nxos': CiscoNxosSSH,
     'cisco_xr': CiscoXrSSH,
+    'cisco_xr_telnet': CiscoXrTelnet,
     'cisco_wlc': CiscoWlcSSH,
     'cisco_s300': CiscoS300SSH,
     'eltex': EltexSSH,
@@ -69,12 +76,16 @@ CLASS_MAPPER_BASE = {
     'alcatel_sros': AlcatelSrosSSH,
     'fortinet': FortinetSSH,
     'dell_force10': DellForce10SSH,
+    'dell_powerconnect': DellPowerConnectSSH,
     'paloalto_panos': PaloAltoPanosSSH,
     'quanta_mesh': QuantaMeshSSH,
     'aruba_os': ArubaSSH,
     'ubiquiti_edge': UbiquitiEdgeSSH,
     'ciena_saos': CienaSaosSSH,
     'cisco_tp': CiscoTpTcCeSSH,
+    'generic_termserver': TerminalServerSSH,
+    'mellanox_ssh': MellanoxSSH,
+    'pluribus': PluribusSSH
 }
 
 # Also support keys that end in _ssh
@@ -86,7 +97,13 @@ for k, v in CLASS_MAPPER_BASE.items():
 CLASS_MAPPER = new_mapper
 
 # Add telnet drivers
-CLASS_MAPPER['cisco_ios_telnet'] = CiscoIosTelnet
+CLASS_MAPPER['cisco_ios_telnet'] = CiscoIosBase
+CLASS_MAPPER['dell_powerconnect_telnet'] = DellPowerConnectTelnet
+CLASS_MAPPER['generic_termserver_telnet'] = TerminalServerTelnet
+
+# Add general terminal_server driver and autodetect
+CLASS_MAPPER['terminal_server'] = TerminalServerSSH
+CLASS_MAPPER['autodetect'] = TerminalServerSSH
 
 platforms = list(CLASS_MAPPER.keys())
 platforms.sort()
@@ -108,3 +125,16 @@ def ConnectHandler(*args, **kwargs):
 def ssh_dispatcher(device_type):
     """Select the class to be instantiated based on vendor/platform."""
     return CLASS_MAPPER[device_type]
+
+
+def redispatch(obj, device_type, session_prep=True):
+    """Dynamically change Netmiko object's class to proper class.
+
+    Generally used with terminal_server device_type when you need to redispatch after interacting
+    with terminal server.
+    """
+    new_class = ssh_dispatcher(device_type)
+    obj.device_type = device_type
+    obj.__class__ = new_class
+    if session_prep:
+        obj.session_preparation()
