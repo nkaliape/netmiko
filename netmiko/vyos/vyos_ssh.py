@@ -1,5 +1,6 @@
 from __future__ import print_function
 from __future__ import unicode_literals
+import time
 from netmiko.cisco_base_connection import CiscoSSHConnection
 
 
@@ -10,7 +11,10 @@ class VyOSSSH(CiscoSSHConnection):
         """Prepare the session after the connection has been established."""
         self._test_channel_read()
         self.set_base_prompt()
-        self.disable_paging(command="set terminal length 0\n")
+        self.disable_paging(command="set terminal length 0")
+        # Clear the read buffer
+        time.sleep(.3 * self.global_delay_factor)
+        self.clear_buffer()
 
     def check_enable_mode(self, *args, **kwargs):
         """No enable mode on VyOS."""
@@ -28,11 +32,11 @@ class VyOSSSH(CiscoSSHConnection):
         """Checks if the device is in configuration mode"""
         return super(VyOSSSH, self).check_config_mode(check_string=check_string)
 
-    def config_mode(self, config_command='configure', pattern='[edit]'):
+    def config_mode(self, config_command='configure', pattern=r'[edit]'):
         """Enter configuration mode."""
         return super(VyOSSSH, self).config_mode(config_command=config_command, pattern=pattern)
 
-    def exit_config_mode(self, exit_config='exit', pattern='exit'):
+    def exit_config_mode(self, exit_config='exit', pattern=r'exit'):
         """Exit configuration mode"""
         output = ""
         if self.check_config_mode():
@@ -83,10 +87,16 @@ class VyOSSSH(CiscoSSHConnection):
         return self.base_prompt
 
     def send_config_set(self, config_commands=None, exit_config_mode=False, delay_factor=1,
-                        max_loops=150, strip_prompt=False, strip_command=False):
+                        max_loops=150, strip_prompt=False, strip_command=False,
+                        config_mode_command=None):
         """Remain in configuration mode."""
         return super(VyOSSSH, self).send_config_set(config_commands=config_commands,
                                                     exit_config_mode=exit_config_mode,
                                                     delay_factor=delay_factor, max_loops=max_loops,
                                                     strip_prompt=strip_prompt,
-                                                    strip_command=strip_command)
+                                                    strip_command=strip_command,
+                                                    config_mode_command=config_mode_command)
+
+    def save_config(self, cmd='', confirm=True, confirm_response=''):
+        """Not Implemented"""
+        raise NotImplementedError

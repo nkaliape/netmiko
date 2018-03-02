@@ -45,6 +45,9 @@ SNMP_MAPPER_BASE = {
     'cisco_xe': {"oid": ".1.3.6.1.2.1.1.1.0",
                  "expr": re.compile(r".*IOS-XE Software,.*", re.IGNORECASE),
                  "priority": 99},
+    'cisco_xr': {"oid": ".1.3.6.1.2.1.1.1.0",
+                 "expr": re.compile(r".*Cisco IOS XR Software.*", re.IGNORECASE),
+                 "priority": 99},
     'cisco_asa': {"oid": ".1.3.6.1.2.1.1.1.0",
                   "expr": re.compile(r".*Cisco Adaptive Security Appliance.*", re.IGNORECASE),
                   "priority": 99},
@@ -60,6 +63,9 @@ SNMP_MAPPER_BASE = {
     'fortinet': {"oid": ".1.3.6.1.2.1.1.1.0",
                  "expr": re.compile(r"Forti.*", re.IGNORECASE),
                  "priority": 80},
+    'checkpoint': {"oid": ".1.3.6.1.4.1.2620.1.6.16.9.0",
+                   "expr": re.compile(r"CheckPoint"),
+                   "priority": 79},
 }
 
 # Ensure all SNMP device types are supported by Netmiko

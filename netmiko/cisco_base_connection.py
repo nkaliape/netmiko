@@ -1,6 +1,7 @@
 """CiscoBaseConnection is netmiko SSH class for Cisco and Cisco-like platforms."""
 from __future__ import unicode_literals
 from netmiko.base_connection import BaseConnection
+from netmiko.scp_handler import BaseFileTransfer
 from netmiko.ssh_exception import NetMikoAuthenticationException
 import re
 import time
@@ -16,7 +17,7 @@ class CiscoBaseConnection(BaseConnection):
             self).check_enable_mode(
             check_string=check_string)
 
-    def enable(self, cmd='enable', pattern='password', re_flags=re.IGNORECASE):
+    def enable(self, cmd='enable', pattern='ssword', re_flags=re.IGNORECASE):
         """Enter enable mode."""
         return super(
             CiscoBaseConnection,
@@ -39,13 +40,10 @@ class CiscoBaseConnection(BaseConnection):
         Cisco IOS devices abbreviate the prompt at 20 chars in config mode
         """
         if not pattern:
-            #pattern = self.base_prompt[:16]
-            pattern = self.current_prompt[:16]
-        return super(
-            CiscoBaseConnection,
-            self).check_config_mode(
-            check_string=check_string,
-            pattern=pattern)
+            pattern = self.base_prompt[:16]
+            #pattern = self.current_prompt[:16]
+        return super(CiscoBaseConnection, self).check_config_mode(check_string=check_string,
+                                                                  pattern=pattern)
 
     def config_mode(self, config_command='config term', pattern=''):
         """
@@ -55,7 +53,7 @@ class CiscoBaseConnection(BaseConnection):
         """
         if not pattern:
             pattern = self.base_prompt[:16]
-            pattern = self.current_prompt[:16]
+            #pattern = self.current_prompt[:16] ## quick-dirty solution
 
         return super(
             CiscoBaseConnection,
@@ -73,6 +71,18 @@ class CiscoBaseConnection(BaseConnection):
             self).exit_config_mode(
             exit_config=exit_config,
             pattern=pattern)
+    
+    def serial_login(self, pri_prompt_terminator=r'#\s*$', alt_prompt_terminator=r'>\s*$',
+                     username_pattern=r"(?:[Uu]ser:|sername|ogin)", pwd_pattern=r"assword",
+                     delay_factor=1, max_loops=20):
+        self.write_channel(self.TELNET_RETURN)
+        output = self.read_channel()
+        if (re.search(pri_prompt_terminator, output, flags=re.M)
+                or re.search(alt_prompt_terminator, output, flags=re.M)):
+            return output
+        else:
+            return self.telnet_login(pri_prompt_terminator, alt_prompt_terminator,
+                                     username_pattern, pwd_pattern, delay_factor, max_loops)
 
     def telnet_login(
             self,
@@ -83,6 +93,24 @@ class CiscoBaseConnection(BaseConnection):
             delay_factor=1,
             init_cmd=None,
             max_loops=60):
+        """Telnet login. Can be username/password or just password."""
+        TELNET_RETURN = '\r\n'
+        if init_cmd:
+            TELNET_RETURN = '\r'
+            self.write_channel(init_cmd + TELNET_RETURN)
+
+            pattern = re.escape(self.base_prompt[:16])
+        return super(CiscoBaseConnection, self).exit_config_mode(exit_config=exit_config,
+                                                                 pattern=pattern)
+
+
+
+    def telnet_login(self, pri_prompt_terminator=r'#\s*$', alt_prompt_terminator=r'>\s*$',
+                     username_pattern=r"(?:[Uu]ser:|sername|ogin|User Name)",
+                     pwd_pattern=r"assword",
+                     delay_factor=1,
+                     init_cmd=None,
+                     max_loops=60):
         """Telnet login. Can be username/password or just password."""
         TELNET_RETURN = '\r\n'
         if init_cmd:
@@ -102,18 +130,19 @@ class CiscoBaseConnection(BaseConnection):
 
                 # Search for username pattern / send username
                 if re.search(username_pattern, output):
-                    self.write_channel(self.username + TELNET_RETURN)
+                    self.write_channel(self.username + self.TELNET_RETURN)
                     time.sleep(1 * delay_factor)
                     output = self.read_channel(verbose=True)
                     return_msg += output
 
                 # Search for password pattern / send password
                 if re.search(pwd_pattern, output):
-                    self.write_channel(self.password + TELNET_RETURN)
+                    self.write_channel(self.password + self.TELNET_RETURN)
                     time.sleep(.5 * delay_factor)
                     output = self.read_channel(verbose=True)
                     return_msg += output
-                    if pri_prompt_terminator in output or alt_prompt_terminator in output:
+                    if (re.search(pri_prompt_terminator, output, flags=re.M)
+                            or re.search(alt_prompt_terminator, output, flags=re.M)):
                         return return_msg
 
                 # Search for standby console pattern
@@ -126,7 +155,7 @@ class CiscoBaseConnection(BaseConnection):
                 if re.search(
                     r"initial configuration dialog\? \[yes/no\]: ",
                         output):
-                    self.write_channel("no" + TELNET_RETURN)
+                    self.write_channel("no" + self.TELNET_RETURN)
                     time.sleep(.5 * delay_factor)
                     count = 0
                     while count < 15:
@@ -140,15 +169,16 @@ class CiscoBaseConnection(BaseConnection):
 
                 # Check for device with no password configured
                 if re.search(r"assword required, but none set", output):
-                    msg = "Telnet login failed - Password required, but none set: {0}".format(
+                    msg = "Telnet login failed - Password required, but none set: {}".format(
                         self.host)
                     raise NetMikoAuthenticationException(msg)
 
                 # Check if proper data received
-                if pri_prompt_terminator in output or alt_prompt_terminator in output:
+                if (re.search(pri_prompt_terminator, output, flags=re.M)
+                        or re.search(alt_prompt_terminator, output, flags=re.M)):
                     return return_msg
 
-                self.write_channel(TELNET_RETURN)
+                self.write_channel(self.TELNET_RETURN)
                 time.sleep(.5 * delay_factor)
                 i += 1
             except EOFError:
@@ -156,11 +186,12 @@ class CiscoBaseConnection(BaseConnection):
                 raise NetMikoAuthenticationException(msg)
 
         # Last try to see if we already logged in
-        self.write_channel(TELNET_RETURN)
+        self.write_channel(self.TELNET_RETURN)
         time.sleep(.5 * delay_factor)
         output = self.read_channel(verbose=True)
         return_msg += output
-        if pri_prompt_terminator in output or alt_prompt_terminator in output:
+        if (re.search(pri_prompt_terminator, output, flags=re.M)
+                or re.search(alt_prompt_terminator, output, flags=re.M)):
             return return_msg
 
         msg = "LAST_TRY Telnet login failed: {0}".format(self.host)
@@ -174,7 +205,7 @@ class CiscoBaseConnection(BaseConnection):
             # Always try to send 'exit' regardless of whether exit_config_mode
             # works or not.
             pass
-        self.write_channel("exit\n")
+        self.write_channel("exit" + self.RETURN)
 
     def _autodetect_fs(self, cmd='dir', pattern=r'Directory of (.*)/'):
         """Autodetect the file system on the remote device. Used by SCP operations."""
@@ -193,6 +224,26 @@ class CiscoBaseConnection(BaseConnection):
             "system: {} {}".format(
                 cmd, output))
 
+    def save_config(self, cmd='copy running-config startup-config', confirm=False,
+                    confirm_response=''):
+        """Saves Config."""
+        self.enable()
+        if confirm:
+            output = self.send_command_timing(command_string=cmd)
+            if confirm_response:
+                output += self.send_command_timing(confirm_response)
+            else:
+                # Send enter by default
+                output += self.send_command_timing(self.RETURN)
+        else:
+            # Some devices are slow so match on trailing-prompt if you can
+            output = self.send_command(command_string=cmd)
+        return output
+
 
 class CiscoSSHConnection(CiscoBaseConnection):
+    pass
+
+
+class CiscoFileTransfer(BaseFileTransfer):
     pass

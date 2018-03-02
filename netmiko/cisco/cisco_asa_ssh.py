@@ -2,7 +2,8 @@
 
 from __future__ import unicode_literals
 import re
-from netmiko.cisco_base_connection import CiscoSSHConnection
+import time
+from netmiko.cisco_base_connection import CiscoSSHConnection, CiscoFileTransfer
 
 
 class CiscoAsaSSH(CiscoSSHConnection):
@@ -11,9 +12,15 @@ class CiscoAsaSSH(CiscoSSHConnection):
         """Prepare the session after the connection has been established."""
         self._test_channel_read()
         self.set_base_prompt()
-        self.enable()
-        self.disable_paging(command="terminal pager 0\n")
-        self.set_terminal_width(command="terminal width 511\n")
+        if self.secret:
+            self.enable()
+        else:
+            self.asa_login()
+        self.disable_paging(command="terminal pager 0")
+        self.set_terminal_width(command="terminal width 511")
+        # Clear the read buffer
+        time.sleep(.3 * self.global_delay_factor)
+        self.clear_buffer()
 
     def send_command_timing(self, *args, **kwargs):
         """
@@ -69,3 +76,38 @@ class CiscoAsaSSH(CiscoSSHConnection):
             # strip off (conf.* from base_prompt
             self.base_prompt = match.group(1)
             return self.base_prompt
+
+    def asa_login(self):
+        """
+        Handle ASA reaching privilege level 15 using login
+
+        twb-dc-fw1> login
+        Username: admin
+        Password: ************
+        """
+        delay_factor = self.select_delay_factor(0)
+
+        i = 1
+        max_attempts = 50
+        self.write_channel("login" + self.RETURN)
+        while i <= max_attempts:
+            time.sleep(.5 * delay_factor)
+            output = self.read_channel()
+            if 'sername' in output:
+                self.write_channel(self.username + self.RETURN)
+            elif 'ssword' in output:
+                self.write_channel(self.password + self.RETURN)
+            elif '#' in output:
+                break
+            else:
+                self.write_channel("login" + self.RETURN)
+            i += 1
+
+    def save_config(self, cmd='write mem', confirm=False):
+        """Saves Config"""
+        return super(CiscoAsaSSH, self).save_config(cmd=cmd, confirm=confirm)
+
+
+class CiscoAsaFileTransfer(CiscoFileTransfer):
+    """Cisco ASA SCP File Transfer driver."""
+    pass

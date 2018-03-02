@@ -4,9 +4,7 @@ CiscoXrSSH is part of cisco_xr.py
 '''
 from __future__ import print_function
 from __future__ import unicode_literals
-
-import re
-
+import time
 from netmiko.cisco_base_connection import CiscoSSHConnection
 
 
@@ -18,6 +16,9 @@ class ObsoleteCiscoXrSSH(CiscoSSHConnection):
         self.set_base_prompt()
         self.disable_paging()
         self.set_terminal_width(command='terminal width 511')
+        # Clear the read buffer
+        time.sleep(.3 * self.global_delay_factor)
+        self.clear_buffer()
 
     def send_config_set(
             self,
@@ -127,6 +128,19 @@ class ObsoleteCiscoXrSSH(CiscoSSHConnection):
 
         return output
 
+    def check_config_mode(self, check_string=')#', pattern=r"[#\$]"):
+        """Checks if the device is in configuration mode or not.
+
+        IOS-XR, unfortunately, does this:
+        RP/0/RSP0/CPU0:BNG(admin)#
+        """
+        self.write_channel(self.RETURN)
+        output = self.read_until_pattern(pattern=pattern)
+        # Strip out (admin) so we don't get a false positive with (admin)#
+        # (admin-config)# would still match.
+        output = output.replace("(admin)", "")
+        return check_string in output
+
     def exit_config_mode(self, exit_config='end'):
         """Exit configuration mode."""
         output = ''
@@ -140,8 +154,6 @@ class ObsoleteCiscoXrSSH(CiscoSSHConnection):
                 raise ValueError("Failed to exit configuration mode")
         return output
 
-    @staticmethod
-    def normalize_linefeeds(a_string):
-        """Convert '\r\n','\r\r\n', '\n\r', or '\r' to '\n."""
-        newline = re.compile(r'(\r\r\n|\r\n|\n\r|\r)')
-        return newline.sub('\n', a_string)
+    def save_config(self):
+        """Not Implemented (use commit() method)"""
+        raise NotImplementedError

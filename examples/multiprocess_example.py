@@ -16,6 +16,7 @@ with warnings.catch_warnings(record=True) as w:
     import paramiko
 
 import multiprocessing
+import time
 from datetime import datetime
 
 import netmiko
@@ -81,31 +82,30 @@ def worker_show_version(a_device, mp_queue):
 
 
 def main():
-
     mp_queue = multiprocessing.Queue()
     processes = []
 
     print "\nStart time: " + str(datetime.now())
 
     for a_device in all_devices:
-
         p = multiprocessing.Process(target=worker_show_version, args=(a_device, mp_queue))
         processes.append(p)
         # start the work process
         p.start()
 
+    # retrieve all the data from the queue
+    results = []
+    while any(p.is_alive() for p in processes):
+        time.sleep(0.1)
+        while not mp_queue.empty():
+            results.append(mp_queue.get())
+            
     # wait until the child processes have completed
     for p in processes:
         p.join()
-
-    # retrieve all the data from the queue
-    results = []
-    for p in processes:
-        results.append(mp_queue.get())
 
     print_output(results)
 
     
 if __name__ == '__main__':
-
     main()
